@@ -1,16 +1,15 @@
 from flask import Flask, request, render_template_string
 import yt_dlp
 import os
-import time
 from pathlib import Path
+import time
 
 app = Flask(__name__)
 
 # Get user's Downloads folder
 downloads_folder = str(Path.home() / "Downloads")
 
-
-# HTML template
+# HTML Template
 html_template = """
 <!DOCTYPE html>
 <html>
@@ -23,9 +22,9 @@ html_template = """
   </style>
 </head>
 <body>
-  <h1>YouTube Video Downloader</h1>
+  <h1>YouTube Video / Playlist Downloader</h1>
   <form method="post" action="/download">
-    <input type="text" name="url" placeholder="Enter YouTube video URL" required>
+    <input type="text" name="url" placeholder="Enter YouTube video or playlist URL" required>
     <br><br>
     <input type="submit" value="Download">
   </form>
@@ -45,26 +44,31 @@ def download():
             'format': 'best',
             'outtmpl': os.path.join(downloads_folder, '%(title)s.%(ext)s'),
             'force_overwrites': True,
-            'noplaylist': False,    # ✅ Allows downloading full playlists
+            'noplaylist': False,
             'no_cache_dir': True,
-            'no_mtime': True  # <<<< This ensures the file shows today's date
-            }
+            'no_mtime': True,
+            'cookies': 'cookies.txt'  # ✅ Use browser cookies for login-required videos
+        }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
-            title = info.get('title', 'video')
-            extension = info.get('ext', 'mp4')
-            file_path = os.path.join(downloads_folder, f"{title}.{extension}")
 
+            # Handle playlist vs single video
+            if 'entries' in info:
+                titles = [entry.get('title', 'video') for entry in info['entries']]
+                msg = f"<h3>✅ Playlist downloaded:</h3><ul>" + ''.join([f"<li>{t}</li>" for t in titles]) + "</ul>"
+            else:
+                title = info.get('title', 'video')
+                extension = info.get('ext', 'mp4')
+                file_path = os.path.join(downloads_folder, f"{title}.{extension}")
+                now = time.time()
+                os.utime(file_path, (now, now))
+                msg = f"<h3>✅ Download complete: <i>{title}</i></h3><p>Saved to: <code>{file_path}</code></p>"
 
-        # ✅ Manually update file's modified time to now (optional but extra-safe)
-        now = time.time()
-        os.utime(file_path, (now, now))
-      
-      
-        return f"<h3>✅ Download complete: <i>{title}</i></h3><p>Saved to: <code>{file_path}</code></p>"
+        return msg + "<br><a href='/'>Back</a>"
+
     except Exception as e:
-        return f"<h3>❌ Error: {str(e)}</h3>"
+        return f"<h3>❌ Error: {str(e)}</h3><a href='/'>Back</a>"
 
 if __name__ == '__main__':
     app.run(debug=True)
