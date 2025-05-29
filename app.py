@@ -5,11 +5,9 @@ from pathlib import Path
 import time
 
 app = Flask(__name__)
-
-# Get user's Downloads folder
 downloads_folder = str(Path.home() / "Downloads")
 
-# HTML Template
+# HTML UI
 html_template = """
 <!DOCTYPE html>
 <html>
@@ -47,23 +45,22 @@ def download():
             'noplaylist': False,
             'no_cache_dir': True,
             'no_mtime': True,
-            'cookies': 'cookies.txt'  # ✅ Use browser cookies for login-required videos
+            'cookiesfrombrowser': ('chrome',)  # ✅ Auto-load cookies from Chrome (change if needed)
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
 
-            # Handle playlist vs single video
             if 'entries' in info:
                 titles = [entry.get('title', 'video') for entry in info['entries']]
                 msg = f"<h3>✅ Playlist downloaded:</h3><ul>" + ''.join([f"<li>{t}</li>" for t in titles]) + "</ul>"
             else:
                 title = info.get('title', 'video')
-                extension = info.get('ext', 'mp4')
-                file_path = os.path.join(downloads_folder, f"{title}.{extension}")
+                ext = info.get('ext', 'mp4')
+                path = os.path.join(downloads_folder, f"{title}.{ext}")
                 now = time.time()
-                os.utime(file_path, (now, now))
-                msg = f"<h3>✅ Download complete: <i>{title}</i></h3><p>Saved to: <code>{file_path}</code></p>"
+                os.utime(path, (now, now))
+                msg = f"<h3>✅ Download complete: <i>{title}</i></h3><p>Saved to: <code>{path}</code></p>"
 
         return msg + "<br><a href='/'>Back</a>"
 
